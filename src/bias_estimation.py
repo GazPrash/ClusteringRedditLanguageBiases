@@ -19,7 +19,7 @@ class Embedder:
 
     def get_embedding(self, word:str):
         embedding = np.zeros(200)
-        if word in self._model.vocab:
+        if word in self._model.index_to_key:
             embedding = self._model[word]
             self._stored_vectors[word] = embedding
             return embedding
@@ -69,6 +69,8 @@ def SelectNBiasedWords(data_path:str, n:int = 500):
     global_embedding.reinitialize()
     c1, c2 = global_embedding.prepare_target_sets(TargetSet1, TargetSet2)
 
+    print("Target Centroids calculated...")
+
     # Word embeddings of the words (200-dimensional)
     wordembed_bias = OrderedDict()
     total_words = []
@@ -76,12 +78,13 @@ def SelectNBiasedWords(data_path:str, n:int = 500):
     # Centroid vectors for the male and female gender groups (200-dimensional)
     # centroid_male = np.array([0.1, 0.2, ..., 0.3])
     # centroid_female = np.array([0.5, 0.6, ..., 0.7])
+    print("Generating Vocab & Calculating Biases...")
 
     for comment in data.Comment:
         adj_nouns = find_adjectives(comment)
         for word in adj_nouns:
             if word in wordembed_bias : continue
-            word_embed = global_embedding.word_vector(word)
+            word_embed = global_embedding.get_embedding(word)
             if (word_embed is None) : continue
 
             bias = cosine_similarity(word_embed, c1) - cosine_similarity(word_embed, c2)
@@ -94,5 +97,6 @@ def SelectNBiasedWords(data_path:str, n:int = 500):
     biased_words = [(word, bias) for word, bias in zip(total_words, total_biases)]
     biased_words.sort(key=lambda x : x[1])
 
+    print("Generating Clusters...")
     wcluster = WordCluster("None", wordembed_bias, total_biases, biased_words[:500], biased_words[-500:])
     cl1, cl2 = wcluster.partition_cluster()

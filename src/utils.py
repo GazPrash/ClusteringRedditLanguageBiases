@@ -6,8 +6,8 @@ def cosine_similarity(word_vector1, word_vector2):
   """
 
   dot_product = np.dot(word_vector1, word_vector2)
-  magnitude1 = np.linalg.norm(word_vector1)
-  magnitude2 = np.linalg.norm(word_vector2)
-  cosine_similarity = dot_product / (magnitude1 * magnitude2)
+  wv1_mag = np.linalg.norm(word_vector1)
+  wv2_mag = np.linalg.norm(word_vector2)
+  cosine_similarity = dot_product / (wv1_mag * wv2_mag)
 
   return cosine_similarity
