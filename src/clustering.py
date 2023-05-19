@@ -26,8 +26,8 @@ class WordCluster:
 
     def partition_cluster(self):
         k = int(self.r * (len(self.femalew) + len(self.malew)) / 2)
-        emb1, emb2 = [self.word_embeddings[word1] for word1 in self.femalew], [
-            self.word_embeddings[word2] for word2 in self.malew
+        emb1, emb2 = [self.word_embeddings[word1] for word1, _ in self.femalew], [
+            self.word_embeddings[word2] for word2, _ in self.malew
         ]
         mis1, mis2 = [0,[]], [0,[]]	#here we will save partitions with max sim for both target sets
         for _ in range(self.repats):
@@ -70,9 +70,9 @@ class WordCluster:
         sim = 0
         c = 0
         for i in range(len(cluster)):
-            w1 = self.word_embeddings[cluster[i]]
+            w1 = self.word_embeddings[cluster[i][0]]
             for j in range(i + 1, len(cluster)):
-                w2 = self.word_embeddings[cluster[j]]
+                w2 = self.word_embeddings[cluster[j][0]]
                 sim += 1 - cosine_similarity(w1, w2)
                 c += 1
         
