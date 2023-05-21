@@ -4,7 +4,7 @@ def cosine_similarity(word_vector1, word_vector2):
   """
   Calculates the cosine similarity between two word vectors.
   """
-
+  # print(word_vector1.shape, word_vector2.shape)
   dot_product = np.dot(word_vector1, word_vector2)
   wv1_mag = np.linalg.norm(word_vector1)
   wv2_mag = np.linalg.norm(word_vector2)
