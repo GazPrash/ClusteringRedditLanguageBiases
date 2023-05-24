@@ -2,6 +2,7 @@ import spacy
 import torch
 from transformers import BertTokenizer, BertModel
 import numpy as np
+from sklearn.decomposition import PCA
 
 
 class BertEmbedder:
@@ -10,8 +11,10 @@ class BertEmbedder:
         self.bert_tokenizer = BertTokenizer.from_pretrained(model_name)
         self._stored_vectors = {}
         self.spacy_nlp = spacy.load("en_core_web_sm")
-        self.adj_verbs = {}
         self.vecdim = 768
+        self.adj_verbs = {}
+        self.count_vocab = {}
+        self.duplicates = {}
 
     def tokenize_sentences(self, documents: list[str]):
         # Trying to have a ledger which tells out of the total words
@@ -19,22 +22,22 @@ class BertEmbedder:
         for sentence in documents:
             doc = self.spacy_nlp(sentence)
             for token in doc:
-                if token.pos_ == "ADJ" or token.pos_ == "VERB":
+                if token.pos_ == "ADJ":
                     self.adj_verbs[token.text] = True
+                    if token.text not in self.count_vocab:
+                        self.count_vocab[token.text] = 1
+                        continue
+                    self.count_vocab[token.text] += 1
+
                 else:
                     self.adj_verbs[token.text] = False
 
     def create_embeddings(self, documents: list[str]):
         print("Processing documents...")
 
-        for sentence in documents:
-            tokens = self.bert_tokenizer.encode(
-                sentence,
-                add_special_tokens=True,
-                truncation=True,
-                padding="max_length",
-                max_length=512,
-            )
+        for i, sentence in enumerate(documents):
+
+            tokens = self.bert_tokenizer.tokenize(sentence)
             token_ids = self.bert_tokenizer.convert_tokens_to_ids(tokens)
             input_tensor = torch.tensor([token_ids])
 
@@ -42,13 +45,20 @@ class BertEmbedder:
                 with torch.no_grad():
                     self._model.eval()
                     outputs = self._model(input_tensor)
-            except Exception:
-                print(len(sentence))
-                raise Exception
+            except Exception as e:
+                print(e)
+                print(f"Skipping the #{i} comment", f"Total Words: {len(sentence.split(' '))}")
+                continue
 
             word_vectors = outputs.last_hidden_state.squeeze(0)
             for word, vec in zip(tokens, word_vectors):
-                self._stored_vectors[word] = np.array(vec)
+                vec = np.array(vec)
+                if word in self._stored_vectors:
+                    if word not in self.duplicates:
+                        self.duplicates[word] = [vec]
+                    else : self.duplicates[word].append(vec)
+                    continue
+                self._stored_vectors[word] = vec
 
         print("Finished. Vocabulary Generated!")
 

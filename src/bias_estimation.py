@@ -25,6 +25,7 @@ class BiasEstimation:
         self.global_embedding = global_embedding
         self.data_path = data_path
         self.focus_column = focus_column
+        # self.count_vocab = {}
 
         self.reload_variables()
 
@@ -41,6 +42,21 @@ class BiasEstimation:
         # Centroid of Target concept 1 & 2 (200-dimensional)
         self.novec_words = []
 
+    def find_max_bias_embedding(self, word, bert_emb:BertEmbedder):
+        best_emb = bert_emb._stored_vectors[word]
+        max_bias = cosine_similarity(best_emb, self.c1) - cosine_similarity(
+                    best_emb, self.c2
+        )
+        
+        for emb in bert_emb.duplicates[word]:
+            new_bias = cosine_similarity(emb, self.c1) - cosine_similarity(
+                    emb, self.c2
+            )
+            max_bias, best_emb = (new_bias, emb) if abs(max_bias) < abs(new_bias) else (max_bias, best_emb)
+
+        return (best_emb, max_bias)
+
+
     def NBiasedWords_Bert(self, n: int, bert_embed:BertEmbedder):
         """
         Genrates clusters of n-biased words towards self.target1 and self.target2 using Bert's embedding
@@ -49,25 +65,24 @@ class BiasEstimation:
         bert_embed.create_embeddings(self.data[self.focus_column])
 
         self.c1, self.c2 = bert_embed.prepare_target_sets(self.target1, self.target2)
-        for comment in self.data[self.focus_column]:
-            for word in comment:
-                if not bert_embed.adj_verbs[word]:
-                    continue
-                if word in self.total_words:
-                    continue
-
-                word_embed = bert_embed._stored_vectors[word]
-                if word_embed is None:
-                    self.novec_words.append(word)
-                    continue
-
-                bias = cosine_similarity(word_embed, self.c1) - cosine_similarity(
-                    word_embed, self.c2
+        for word, word_vec in bert_embed._stored_vectors.items():
+            if word not in bert_embed.adj_verbs:
+                continue
+            elif not bert_embed.adj_verbs[word]:
+                continue
+            elif word in self.total_words:
+                continue
+            elif bert_embed.count_vocab[word] < 10:
+                continue
+            
+            if word in bert_embed.duplicates:
+                bert_embed._stored_vectors[word], bias = self.find_max_bias_embedding(word, bert_embed)
+            else:
+                bias = cosine_similarity(word_vec, self.c1) - cosine_similarity(
+                    word_vec, self.c2
                 )
-
-                self.total_words.append(word)
-                self.total_biases.append(bias)
-
+            self.total_words.append(word)
+            self.total_biases.append(bias)
 
         biased_words = [
             (word, bias) for word, bias in zip(self.total_words, self.total_biases)
@@ -75,7 +90,6 @@ class BiasEstimation:
         biased_words.sort(key=lambda x: x[1])
 
         print("Generating Clusters...")
-
         wcluster = WordCluster(
             "None",
             bert_embed._stored_vectors,
@@ -131,7 +145,7 @@ class BiasEstimation:
             (word, bias) for word, bias in zip(self.total_words, self.total_biases)
         ]
         biased_words.sort(key=lambda x: x[1])
-
+        self.biased_words_sorted = biased_words
         print("Generating Clusters...")
 
         wcluster = WordCluster(
